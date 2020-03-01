@@ -3,7 +3,7 @@ from math import exp, log
 import matplotlib.pyplot as plt
 
 # Some parameters that are not settable:
-mortgage_payment_range_max = 10000.      # in dollars
+mortgage_payment_range_max = 100000.     # in dollars
 mortgage_duration_range_max = 30.        # in years
 mortgage_principal_range_max = 1500000.  # in dollars
 mortgage_interest_rate_range_max = 0.2   # as a fraction of principal
@@ -11,15 +11,15 @@ mortgage_interest_rate_range_max = 0.2   # as a fraction of principal
 
 class me_calculator:
     def __init__(self, mortgage_payment, mortgage_duration, mortgage_principal, mortgage_interest_rate, escrow_rate):
-        self.mortgage_parameters = {"mortgage_payment": [mortgage_payment, mortgage_payment_range_max],
-                                    "mortgage_duration": [mortgage_duration, mortgage_duration_range_max],
-                                    "mortgage_principal": [mortgage_principal, mortgage_principal_range_max],
-                                    "mortgage_interest_rate": [mortgage_interest_rate, mortgage_interest_rate_range_max]}
-        self.mortgage_plottables = ["mortgage_payment",
-                                    "mortgage_duration",
-                                    "mortgage_principal",
-                                    "mortgage_interest_rate",
-                                    "mortgage_total_interest"]
+        self.mortgage_parameters = {"mortgage_payment": [mortgage_payment, mortgage_payment_range_max, " [$]"],
+                                    "mortgage_duration": [mortgage_duration, mortgage_duration_range_max, " [years]"],
+                                    "mortgage_principal": [mortgage_principal, mortgage_principal_range_max, " [$]"],
+                                    "mortgage_interest_rate": [mortgage_interest_rate, mortgage_interest_rate_range_max, " [fraction of principal]"]}
+        self.mortgage_plottables = {"mortgage_payment": [" [$]"],
+                                    "mortgage_duration": [" [years]"],
+                                    "mortgage_principal": [" [$]"],
+                                    "mortgage_interest_rate": [" [fraction of principal]"],
+                                    "mortgage_total_interest": [" [$]"]}
         self.functions = me_calculator_functions(escrow_rate)
 
     def plot_1d(self, x_parameter, y_plottable):
@@ -34,22 +34,28 @@ class me_calculator:
         parameter_values = [self.mortgage_parameters[parameter][0] for parameter in parameters]
         x = []
         y = []
-        print(parameter_values)
         for x_parameter_step in range(1, 1000):
             x_parameter_value = x_parameter_step * self.mortgage_parameters[x_parameter][1] / 1000.
             parameter_values[x_parameter_index] = x_parameter_value
-            plottable = getattr(self.functions, y_plottable)(*parameter_values)
+            plottable = 0.
+            try:
+                plottable = getattr(self.functions, y_plottable)(*parameter_values)
+            except ValueError:
+                continue
             x.append(x_parameter_value)
             y.append(plottable)
-        plt.plot(x, y)
+        plt.plot(x, y, lw=1.5, color='red')
+        plt.xlabel(x_parameter + self.mortgage_parameters[x_parameter][2], labelpad=8)
+        plt.xticks(fontsize=8)
+        plt.ylabel(y_plottable + self.mortgage_plottables[y_plottable][0], labelpad=8)
+        plt.yticks(fontsize=8)
         plt.grid()
         plt.show()
 
 class me_calculator_functions:
     def __init__(self, escrow_rate=None):
         self.escrow_rate = escrow_rate
-        if self.escrow_rate is not None:
-            self.include_escrow_expenses = True
+        self.include_escrow_expenses = self.escrow_rate is not None
 
     def mortgage_payment(self, mortgage_duration, mortgage_principal, mortgage_interest_rate):
         escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
@@ -57,13 +63,14 @@ class me_calculator_functions:
 
     def mortgage_principal(self, mortgage_payment, mortgage_duration, mortgage_interest_rate):
         escrow_rate = self.escrow_rate if self.include_escrow_expenses else 0.
-        return mortgage_payment * (1. - exp(mortgage_interest_rate * mortgage_duration)) / (mortgage_interest_rate + escrow_rate * (1. - exp(mortgage_interest_rate * mortgage_duration)))
+        print(mortgage_payment, mortgage_duration, mortgage_interest_rate)
+        return mortgage_payment * (1. - exp(-1 * mortgage_interest_rate * mortgage_duration)) / (mortgage_interest_rate + escrow_rate * (1. - exp(-1 * mortgage_interest_rate * mortgage_duration)))
 
     def mortgage_interest_rate(self, mortgage_payment, mortgage_duration, mortgage_principal):
         escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
         corrected_payment = mortgage_payment - escrow_expenses
-        for interest_step in range(1, 2000):
-            interest = interest_step * 0.01
+        for interest_step in range(1, 20000):
+            interest = interest_step * 0.001
             if exp(interest * mortgage_duration) - (corrected_payment / (corrected_payment - interest * mortgage_principal)) < 0.:
                 return interest
 
@@ -78,9 +85,9 @@ class me_calculator_functions:
         return (corrected_payment / mortgage_interest_rate) * log(corrected_payment / (corrected_payment - mortgage_interest_rate * mortgage_principal)) - mortgage_principal
 
 
-calculator = me_calculator(mortgage_payment=4000.,
-                           mortgage_duration=20.,
-                           mortgage_principal=500000.,
+calculator = me_calculator(mortgage_payment=50000.,
+                           mortgage_duration=15.,
+                           mortgage_principal=750000.,
                            mortgage_interest_rate=0.05,
                            escrow_rate=0.015)
-calculator.plot_1d(x_parameter="mortgage_interest_rate", y_plottable="mortgage_principal")
+calculator.plot_1d(x_parameter="mortgage_interest_rate", y_plottable="mortgage_payment")
