@@ -8,10 +8,17 @@ def argument_checker(func):
         for i, argument_name in enumerate(argument_names):
             if argument_name == "x_parameter":
                 _check_parameter(self, args[i])
+            if argument_name == "y_parameter":
+                _check_parameter(self, args[i])
             if argument_name == "y_plottable":
                 if "x_parameter" not in argument_names:
                     raise KeyError
                 _check_plottable(self, args[argument_names.index("x_parameter")], args[i])
+            if argument_name == "z_plottable":
+                if "x_parameter" not in argument_names or "y_parameter" not in argument_names:
+                    raise KeyError
+                _check_plottable(self, args[argument_names.index("x_parameter")], args[i])
+                _check_plottable(self, args[argument_names.index("y_parameter")], args[i])
             if argument_name == "y_plottables":
                 if "x_parameter" not in argument_names:
                     raise KeyError

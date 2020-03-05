@@ -1,12 +1,18 @@
 import inspect
 from math import exp, log
-import matplotlib.pyplot as plt
 from me_calculator_decorators import argument_checker
 
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import numpy as np
+
+
 # Some parameters that are not settable:
-mortgage_payment_range_min = 10.         # in dollars
+mortgage_payment_range_min = 30000.      # in dollars
 mortgage_duration_range_min = 1.         # in years (>=1)
-mortgage_principal_range_min = 1000.     # in dollars
+mortgage_principal_range_min = 100000.   # in dollars
 mortgage_interest_rate_range_min = 0.0   # as a fraction of principal
 mortgage_interest_range_min = 0.0        # in dollars
 time_range_min = 1.                      # in years
@@ -69,6 +75,43 @@ class me_calculator:
         plt.yticks(fontsize=8)
         plt.grid()
         plt.legend()
+        plt.show()
+
+    @argument_checker
+    def plot_2d(self, x_parameter, y_parameter, z_plottable):
+        plottable_function = getattr(self.functions, z_plottable)
+        parameters = inspect.getfullargspec(plottable_function).args[1:]
+        x_parameter_index = parameters.index(x_parameter)
+        y_parameter_index = parameters.index(y_parameter)
+        parameter_values = [self.mortgage_parameters[parameter][0] for parameter in parameters]
+        x_parameter_range = self.mortgage_parameters[x_parameter][2] - self.mortgage_parameters[x_parameter][1]
+        y_parameter_range = self.mortgage_parameters[y_parameter][2] - self.mortgage_parameters[y_parameter][1]
+        x = np.arange(self.mortgage_parameters[x_parameter][1], self.mortgage_parameters[x_parameter][2], x_parameter_range / 1000.)
+        y = np.arange(self.mortgage_parameters[y_parameter][1], self.mortgage_parameters[y_parameter][2], y_parameter_range / 1000.)
+        x, y = np.meshgrid(x, y)
+        z = np.zeros((1000, 1000))
+        for i in range(0, 1000):
+            for j in range(0, 1000):
+                x_parameter_value = x[i][j]
+                parameter_values[x_parameter_index] = x_parameter_value
+                y_parameter_value = y[i][j]
+                parameter_values[y_parameter_index] = y_parameter_value
+                plottable = 0.
+                try:
+                    plottable = getattr(self.functions, z_plottable)(*parameter_values)
+                except ValueError:
+                    continue
+                z[i][j] = plottable
+
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        surf = ax.plot_surface(x, y, z, linewidth=0, cmap=plt.cm.coolwarm, antialiased=False)
+        ax.set_zlim(-1, np.amax(z) + 1)
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+        plt.xlabel(x_parameter + self.mortgage_parameters[x_parameter][3], labelpad=8)
+        plt.xticks(fontsize=7)
+        plt.ylabel(y_parameter + self.mortgage_parameters[y_parameter][3], labelpad=8)
+        plt.yticks(fontsize=7)
         plt.show()
 
 class me_calculator_functions:
@@ -173,10 +216,11 @@ class me_calculator_functions:
             raise ValueError
         return time * mortgage_payment
 
-calculator = me_calculator(mortgage_payment=88000.,
+calculator = me_calculator(mortgage_payment=24000.,
                            mortgage_duration=30.,
-                           mortgage_principal=600000.,
-                           mortgage_interest_rate=0.12,
+                           mortgage_principal=300000.,
+                           mortgage_interest_rate=0.05,
                            escrow_rate=0.015)
-calculator.plot_1d("time", ["mortgage_principal_paid", "mortgage_interest_paid", "mortgage_escrow_paid", "mortgage_paid"])
+#calculator.plot_1d("time", ["mortgage_principal_paid", "mortgage_interest_paid", "mortgage_escrow_paid", "mortgage_paid"])
 # calculator.plot_1d("mortgage_duration", ["mortgage_payment"])
+calculator.plot_2d("time", "mortgage_payment", "mortgage_interest_paid")
