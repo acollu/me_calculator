@@ -15,21 +15,24 @@ mortgage_duration_range_min = 1.         # in years (>=1)
 mortgage_principal_range_min = 100000.   # in dollars
 mortgage_interest_rate_range_min = 0.0   # as a fraction of principal
 mortgage_interest_range_min = 0.0        # in dollars
-time_range_min = 1.                      # in years
+property_value_growth_rate_min = 0.0     # as a fraction of property value
+time_range_min = 0.                      # in years
 mortgage_payment_range_max = 100000.     # in dollars
 mortgage_duration_range_max = 30.        # in years
 mortgage_principal_range_max = 1500000.  # in dollars
 mortgage_interest_rate_range_max = 0.2   # as a fraction of principal
 mortgage_interest_range_max = 1500000.   # in dollars
+property_value_growth_rate_max = 0.2     # as a fraction of property value
 time_range_max = 30.                     # in years
 
 
 class me_calculator:
-    def __init__(self, mortgage_payment, mortgage_duration, mortgage_principal, mortgage_interest_rate, escrow_rate):
+    def __init__(self, mortgage_payment, mortgage_duration, mortgage_principal, mortgage_interest_rate, escrow_rate, property_value_growth_rate):
         self.mortgage_parameters = {"mortgage_payment": [mortgage_payment, mortgage_payment_range_min, mortgage_payment_range_max, " [$]"],
                                     "mortgage_duration": [mortgage_duration, mortgage_duration_range_min, mortgage_duration_range_max, " [years]"],
                                     "mortgage_principal": [mortgage_principal, mortgage_principal_range_min, mortgage_principal_range_max, " [$]"],
                                     "mortgage_interest_rate": [mortgage_interest_rate, mortgage_interest_rate_range_min, mortgage_interest_rate_range_max, " [fraction of principal]"],
+                                    "property_value_growth_rate": [property_value_growth_rate, property_value_growth_rate_min, property_value_growth_rate_max, " [fraction of property value]"],
                                     "time": [None, time_range_min, time_range_max, " [years]"]}
         self.mortgage_plottables = {"mortgage_payment": [" [$]"],
                                     "mortgage_duration": [" [years]"],
@@ -38,6 +41,7 @@ class me_calculator:
                                     "mortgage_interest": [" [$]"],
                                     "mortgage_escrow": [" [$]"],
                                     "mortgage": [" [$]"],
+                                    "property_value": [" [$]"],
                                     "mortgage_principal_residual": [" [$]"],
                                     "mortgage_principal_paid": [" [$]"],
                                     "mortgage_interest_residual": [" [$]"],
@@ -46,36 +50,41 @@ class me_calculator:
                                     "mortgage_escrow_paid": [" [$]"],
                                     "mortgage_residual": [" [$]"],
                                     "mortgage_paid": [" [$]"]}
-        self.functions = me_calculator_functions(escrow_rate)
+        self.functions = me_calculator_functions(escrow_rate, property_value_growth_rate)
         self.plot_colors = ['red', 'blue', 'black', 'green', 'cyan', 'orange']
 
     @argument_checker
     def plot_1d(self, x_parameter, y_plottables):
         plottable_functions = [getattr(self.functions, y_plottable) for y_plottable in y_plottables]
         for i, y_plottable in enumerate(y_plottables):
-            parameters = inspect.getfullargspec(plottable_functions[i]).args[1:]
-            x_parameter_index = parameters.index(x_parameter)
-            parameter_values = [self.mortgage_parameters[parameter][0] for parameter in parameters]
-            x = []
-            y = []
-            x_parameter_range = self.mortgage_parameters[x_parameter][2] - self.mortgage_parameters[x_parameter][1]
-            for x_parameter_step in range(0, 1000):
-                x_parameter_value = (x_parameter_step * x_parameter_range / 1000.) + self.mortgage_parameters[x_parameter][1]
-                parameter_values[x_parameter_index] = x_parameter_value
-                plottable = 0.
-                try:
-                    plottable = getattr(self.functions, y_plottable)(*parameter_values)
-                except ValueError:
-                    continue
-                x.append(x_parameter_value)
-                y.append(plottable)
-            plt.plot(x, y, lw=1.5, color=self.plot_colors[i], label=y_plottable + self.mortgage_plottables[y_plottable][0])
+             selected_function = getattr(self.functions, y_plottable)
+             x, y = self.data_1d(selected_function, x_parameter)
+             plt.plot(x, y, lw=1.5, color=self.plot_colors[i], label=y_plottable + self.mortgage_plottables[y_plottable][0])
         plt.xlabel(x_parameter + self.mortgage_parameters[x_parameter][3], labelpad=8)
         plt.xticks(fontsize=8)
         plt.yticks(fontsize=8)
         plt.grid()
         plt.legend()
         plt.show()
+
+    def data_1d(self, function, x_parameter):
+        parameters = inspect.getfullargspec(function).args[1:]
+        x_parameter_index = parameters.index(x_parameter)
+        parameter_values = [self.mortgage_parameters[parameter][0] for parameter in parameters]
+        x = []
+        y = []
+        x_parameter_range = self.mortgage_parameters[x_parameter][2] - self.mortgage_parameters[x_parameter][1]
+        for x_parameter_step in range(0, 1000):
+            x_parameter_value = (x_parameter_step * x_parameter_range / 1000.) + self.mortgage_parameters[x_parameter][1]
+            parameter_values[x_parameter_index] = x_parameter_value
+            plottable = 0.
+            try:
+                plottable = function(*parameter_values)
+            except ValueError:
+                continue
+            x.append(x_parameter_value)
+            y.append(plottable)
+        return x, y
 
     @argument_checker
     def plot_2d(self, x_parameter, y_parameter, z_plottable):
@@ -115,9 +124,10 @@ class me_calculator:
         plt.show()
 
 class me_calculator_functions:
-    def __init__(self, escrow_rate=None):
+    def __init__(self, escrow_rate=None, property_value_growth_rate=0.):
         self.escrow_rate = escrow_rate
         self.include_escrow_expenses = self.escrow_rate is not None
+        self.property_value_growth_rate = property_value_growth_rate
 
     def mortgage_payment(self, mortgage_duration, mortgage_principal, mortgage_interest_rate):
         escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
@@ -153,6 +163,9 @@ class me_calculator_functions:
     def mortgage(self, mortgage_payment, mortgage_principal, mortgage_interest_rate):
         duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
         return duration * mortgage_payment
+
+    def property_value(self, mortgage_principal, property_value_growth_rate, time):
+        return mortgage_principal * pow(1. + property_value_growth_rate, time)
 
     def mortgage_principal_residual(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
         duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
@@ -216,11 +229,12 @@ class me_calculator_functions:
             raise ValueError
         return time * mortgage_payment
 
-calculator = me_calculator(mortgage_payment=24000.,
-                           mortgage_duration=30.,
-                           mortgage_principal=300000.,
-                           mortgage_interest_rate=0.05,
-                           escrow_rate=0.015)
+#calculator = me_calculator(mortgage_payment=67899.68888,
+#                           mortgage_duration=35.,
+#                           mortgage_principal=347906,
+#                           mortgage_interest_rate=0.03,
+#                           escrow_rate=0.0,
+#                           property_value_growth_rate=0.05)
 #calculator.plot_1d("time", ["mortgage_principal_paid", "mortgage_interest_paid", "mortgage_escrow_paid", "mortgage_paid"])
-# calculator.plot_1d("mortgage_duration", ["mortgage_payment"])
-calculator.plot_2d("time", "mortgage_payment", "mortgage_interest_paid")
+#calculator.plot_1d("mortgage_duration", ["mortgage_payment"])
+#calculator.plot_2d("mortgage_principal", "time", "mortgage_interest_paid")
