@@ -3,7 +3,7 @@ import setuptools
 with open("README.md", "r", encoding="utf-8") as fh:long_description = fh.read()
 
 setuptools.setup(
-    name="me-calculator-acollu", # Replace with your own username
+    name="mecalculator", # Replace with your own username
     version="0.0.1",
     author="Alberto Collu",
     author_email="author@example.com",
