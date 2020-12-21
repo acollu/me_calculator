@@ -1,5 +1,5 @@
 import inspect
-from me_calculator_errors import UnknownParameter, UnknownPlottable, PlottableNotDependentOnParameter
+from .me_calculator_errors import UnknownParameter, UnknownPlottable, PlottableNotDependentOnParameter
 
 
 def argument_checker(func):

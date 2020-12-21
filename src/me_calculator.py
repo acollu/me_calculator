@@ -1,6 +1,6 @@
 import inspect
 from math import exp, log
-from me_calculator_decorators import argument_checker
+from .me_calculator_decorators import argument_checker
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
