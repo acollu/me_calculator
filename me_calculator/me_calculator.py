@@ -26,7 +26,7 @@ property_value_growth_rate_max = 0.2     # as a fraction of property value
 time_range_max = 30.                     # in years
 
 
-class me_calculator:
+class MeCalculator:
     def __init__(self, mortgage_payment, mortgage_duration, mortgage_principal, mortgage_interest_rate, escrow_rate, property_value_growth_rate):
         self.mortgage_parameters = {"mortgage_payment": [mortgage_payment, mortgage_payment_range_min, mortgage_payment_range_max, " [$]"],
                                     "mortgage_duration": [mortgage_duration, mortgage_duration_range_min, mortgage_duration_range_max, " [years]"],
@@ -229,7 +229,7 @@ class me_calculator_functions:
             raise ValueError
         return time * mortgage_payment
 
-#calculator = me_calculator(mortgage_payment=67899.68888,
+#calculator = MeCalculator(mortgage_payment=67899.68888,
 #                           mortgage_duration=35.,
 #                           mortgage_principal=347906,
 #                           mortgage_interest_rate=0.03,

@@ -12,7 +12,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/acollu/me_calculator",
     #packages=setuptools.find_packages(),
-    packages=['src'],
+    packages=['me_calculator'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
