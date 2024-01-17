@@ -1,6 +1,6 @@
 import inspect
 from math import exp, log
-from .me_calculator_decorators import argument_checker
+from me_calculator_decorators import argument_checker
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -229,12 +229,12 @@ class me_calculator_functions:
             raise ValueError
         return time * mortgage_payment
 
-#calculator = MeCalculator(mortgage_payment=67899.68888,
-#                           mortgage_duration=35.,
-#                           mortgage_principal=347906,
-#                           mortgage_interest_rate=0.03,
-#                           escrow_rate=0.0,
-#                           property_value_growth_rate=0.05)
-#calculator.plot_1d("time", ["mortgage_principal_paid", "mortgage_interest_paid", "mortgage_escrow_paid", "mortgage_paid"])
-#calculator.plot_1d("mortgage_duration", ["mortgage_payment"])
-#calculator.plot_2d("mortgage_principal", "time", "mortgage_interest_paid")
+calculator = MeCalculator(mortgage_payment=67899.68888,
+                           mortgage_duration=35.,
+                           mortgage_principal=347906,
+                           mortgage_interest_rate=0.03,
+                           escrow_rate=0.0,
+                           property_value_growth_rate=0.05)
+calculator.plot_1d("time", ["mortgage_principal_paid", "mortgage_interest_paid", "mortgage_escrow_paid", "mortgage_paid"])
+calculator.plot_1d("mortgage_duration", ["mortgage_payment"])
+calculator.plot_2d("mortgage_principal", "time", "mortgage_interest_paid")
