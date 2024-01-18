@@ -10,6 +10,7 @@ import numpy as np
 
 
 # Some parameters that are not settable:
+downpayment_min = 0.                     # as a fraction of principal 
 mortgage_payment_range_min = 30000.      # in dollars
 mortgage_duration_range_min = 1.         # in years (>=1)
 mortgage_principal_range_min = 100000.   # in dollars
@@ -17,6 +18,7 @@ mortgage_interest_rate_range_min = 0.0   # as a fraction of principal
 mortgage_interest_range_min = 0.0        # in dollars
 property_value_growth_rate_min = 0.0     # as a fraction of property value
 time_range_min = 0.                      # in years
+downpayment_max = 0.2                    # as a fraction of principal
 mortgage_payment_range_max = 100000.     # in dollars
 mortgage_duration_range_max = 30.        # in years
 mortgage_principal_range_max = 1500000.  # in dollars
@@ -27,8 +29,9 @@ time_range_max = 30.                     # in years
 
 
 class MeCalculator:
-    def __init__(self, mortgage_payment, mortgage_duration, mortgage_principal, mortgage_interest_rate, escrow_rate, property_value_growth_rate):
-        self.mortgage_parameters = {"mortgage_payment": [mortgage_payment, mortgage_payment_range_min, mortgage_payment_range_max, " [$]"],
+    def __init__(self, downpayment, mortgage_payment, mortgage_duration, mortgage_principal, mortgage_interest_rate, escrow_rate, property_value_growth_rate, pmi_insurance):
+        self.mortgage_parameters = {"downpayment": [downpayment, downpayment_min, downpayment_max, " [fraction of principal]"],
+                                    "mortgage_payment": [mortgage_payment, mortgage_payment_range_min, mortgage_payment_range_max, " [$]"],
                                     "mortgage_duration": [mortgage_duration, mortgage_duration_range_min, mortgage_duration_range_max, " [years]"],
                                     "mortgage_principal": [mortgage_principal, mortgage_principal_range_min, mortgage_principal_range_max, " [$]"],
                                     "mortgage_interest_rate": [mortgage_interest_rate, mortgage_interest_rate_range_min, mortgage_interest_rate_range_max, " [fraction of principal]"],
@@ -50,7 +53,7 @@ class MeCalculator:
                                     "mortgage_escrow_paid": [" [$]"],
                                     "mortgage_residual": [" [$]"],
                                     "mortgage_paid": [" [$]"]}
-        self.functions = me_calculator_functions(escrow_rate, property_value_growth_rate)
+        self.functions = MeCalculatorFunctions(escrow_rate, property_value_growth_rate, pmi_insurance)
         self.plot_colors = ['red', 'blue', 'black', 'green', 'cyan', 'orange']
 
     @argument_checker
@@ -123,118 +126,134 @@ class MeCalculator:
         plt.yticks(fontsize=7)
         plt.show()
 
-class me_calculator_functions:
-    def __init__(self, escrow_rate=None, property_value_growth_rate=0.):
+class MeCalculatorFunctions:
+    def __init__(self, escrow_rate=None, property_value_growth_rate=0., pmi_insurance=0.000075):
         self.escrow_rate = escrow_rate
         self.include_escrow_expenses = self.escrow_rate is not None
         self.property_value_growth_rate = property_value_growth_rate
+        self.pmi_insurance = pmi_insurance
 
-    def mortgage_payment(self, mortgage_duration, mortgage_principal, mortgage_interest_rate):
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
-        return mortgage_interest_rate * mortgage_principal * exp(mortgage_interest_rate * mortgage_duration) / (exp(mortgage_interest_rate * mortgage_duration) - 1.) + escrow_expenses
+    def mortgage_payment(self, downpayment, mortgage_duration, mortgage_principal, mortgage_interest_rate):
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
+        base = 1. + mortgage_interest_rate
+        return mortgage_interest_rate * mortgage_principal * pow(base, mortgage_duration) / (pow(base, mortgage_duration) - 1.) + escrow_expenses
 
-    def mortgage_principal(self, mortgage_payment, mortgage_duration, mortgage_interest_rate):
+    def mortgage_principal(self, downpayment, mortgage_payment, mortgage_duration, mortgage_interest_rate):
         escrow_rate = self.escrow_rate if self.include_escrow_expenses else 0.
-        return mortgage_payment * (1. - exp(-1 * mortgage_interest_rate * mortgage_duration)) / (mortgage_interest_rate + escrow_rate * (1. - exp(-1 * mortgage_interest_rate * mortgage_duration)))
+        base = 1. + mortgage_interest_rate
+        return mortgage_payment * (pow(base, mortgage_duration) - 1. - mortgage_duration * downpayment * escrow_rate) / 
+               (mortgage_interest_rate * (mortgage_duration * escrow_rate + pow(base, mortgage_duration)))
 
-    def mortgage_interest_rate(self, mortgage_payment, mortgage_duration, mortgage_principal):
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+    def mortgage_interest_rate(self, downpayment, mortgage_payment, mortgage_duration, mortgage_principal):
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         corrected_payment = mortgage_payment - escrow_expenses
         for interest_step in range(1, 20000):
             interest = interest_step * 0.001
             if exp(interest * mortgage_duration) - (corrected_payment / (corrected_payment - interest * mortgage_principal)) < 0.:
                 return interest
 
-    def mortgage_duration(self, mortgage_payment, mortgage_principal, mortgage_interest_rate):
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+    def mortgage_duration(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate):
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         corrected_payment = mortgage_payment - escrow_expenses
         return (1. / mortgage_interest_rate) * log(corrected_payment / (corrected_payment - mortgage_interest_rate * mortgage_principal))
 
-    def mortgage_interest(self, mortgage_payment, mortgage_principal, mortgage_interest_rate):
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+    def mortgage_interest(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate):
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         corrected_payment = mortgage_payment - escrow_expenses
         return (corrected_payment / mortgage_interest_rate) * log(corrected_payment / (corrected_payment - mortgage_interest_rate * mortgage_principal)) - mortgage_principal
 
-    def mortgage_escrow(self, mortgage_payment, mortgage_principal, mortgage_interest_rate):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+    def mortgage_escrow(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         return duration * escrow_expenses
 
-    def mortgage(self, mortgage_payment, mortgage_principal, mortgage_interest_rate):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         return duration * mortgage_payment
 
     def property_value(self, mortgage_principal, property_value_growth_rate, time):
         return mortgage_principal * pow(1. + property_value_growth_rate, time)
 
-    def mortgage_principal_residual(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_principal_residual(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         corrected_payment = mortgage_payment - escrow_expenses
         return (corrected_payment / mortgage_interest_rate) * (1. - exp(mortgage_interest_rate * time)) + mortgage_principal * exp(mortgage_interest_rate * time)
 
-    def mortgage_principal_paid(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_principal_paid(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
-        residual_principal = self.mortgage_principal_residual(mortgage_payment, mortgage_principal, mortgage_interest_rate, time)
+        residual_principal = self.mortgage_principal_residual(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time)
         return mortgage_principal - residual_principal
 
-    def mortgage_interest_residual(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_interest_residual(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
-        residual_principal = self.mortgage_principal_residual(mortgage_payment, mortgage_principal, mortgage_interest_rate, time)
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+        residual_principal = self.mortgage_principal_residual(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time)
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         mortgage_total = duration * (mortgage_payment - escrow_expenses)
         amount_paid_to_date = time * (mortgage_payment - escrow_expenses)
         residual_interest = mortgage_total - amount_paid_to_date - residual_principal
         return residual_interest
 
-    def mortgage_interest_paid(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_interest_paid(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
-        residual_principal = self.mortgage_principal_residual(mortgage_payment, mortgage_principal, mortgage_interest_rate, time)
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+        residual_principal = self.mortgage_principal_residual(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time)
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         amount_paid_to_date = time * (mortgage_payment - escrow_expenses)
         paid_interest = amount_paid_to_date - mortgage_principal + residual_principal
         return paid_interest
 
-    def mortgage_escrow_residual(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_escrow_residual(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         return (duration - time) * escrow_expenses
 
-    def mortgage_escrow_paid(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_escrow_paid(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
-        escrow_expenses = self.escrow_rate * mortgage_principal if self.include_escrow_expenses else 0.
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow_expenses = self.escrow_rate * home_price if self.include_escrow_expenses else 0.
         return time * escrow_expenses
 
-    def mortgage_residual(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_residual(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
         return (duration - time) * mortgage_payment
 
-    def mortgage_paid(self, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
-        duration = self.mortgage_duration(mortgage_payment, mortgage_principal, mortgage_interest_rate)
+    def mortgage_paid(self, downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate, time):
+        duration = self.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
         if time > duration:
             raise ValueError
         return time * mortgage_payment
 
-calculator = MeCalculator(mortgage_payment=67899.68888,
-                           mortgage_duration=35.,
-                           mortgage_principal=347906,
-                           mortgage_interest_rate=0.03,
-                           escrow_rate=0.0,
-                           property_value_growth_rate=0.05)
+calculator = MeCalculator(downpayment=0.2,
+                          mortgage_payment=67899.68888,
+                          mortgage_duration=35.,
+                          mortgage_principal=347906,
+                          mortgage_interest_rate=0.03,
+                          escrow_rate=0.0,
+                          property_value_growth_rate=0.05,
+                          pmi_insurance=0.000075)
 calculator.plot_1d("time", ["mortgage_principal_paid", "mortgage_interest_paid", "mortgage_escrow_paid", "mortgage_paid"])
 calculator.plot_1d("mortgage_duration", ["mortgage_payment"])
 calculator.plot_2d("mortgage_principal", "time", "mortgage_interest_paid")
