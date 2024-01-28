@@ -144,7 +144,7 @@ class MeCalculator:
 
 
 class MeCalculatorFunctions:
-    def __init__(self, cost_per_point=0.01, discount_per_point=0.0025, closing_costs=0., escrow_rate=None, property_value_growth_rate=0., pmi_insurance=0.000075, price_to_rent_ratio=20., market_rate_of_return=0.07):
+    def __init__(self, cost_per_point=0.01, discount_per_point=0.0025, closing_costs=0.06, escrow_rate=None, property_value_growth_rate=0., pmi_insurance=0.000075, price_to_rent_ratio=20., market_rate_of_return=0.07):
         self.cost_per_point = cost_per_point
         self.discount_per_point = discount_per_point
         self.closing_costs = closing_costs

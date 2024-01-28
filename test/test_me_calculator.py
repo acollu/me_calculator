@@ -105,6 +105,46 @@ class TestMeCalculatorFunctions(unittest.TestCase):
         mortgage_interest = self.functions.mortgage_interest(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate) 
         self.assertAlmostEqual(mortgage_interest, interest, 0)
 
+    def test_mortgage_escrow(self):
+        downpayment = 0.15
+        mortgage_payment = 80000.
+        mortgage_principal = 1000000.
+        mortgage_interest_rate = 0.035
+        home_price = mortgage_principal / (1. - downpayment)
+        escrow = home_price * self.functions.escrow_rate * self.functions.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate) 
+        mortgage_escrow = self.functions.mortgage_escrow(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
+        self.assertAlmostEqual(mortgage_escrow, escrow, 1)
+
+    def test_mortgage_no_closing(self):
+        downpayment = 0.15
+        mortgage_payment = 80000.
+        mortgage_principal = 1000000.
+        mortgage_interest_rate = 0.035
+        home_price = mortgage_principal / (1. - downpayment)
+        expected = self.functions.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate) * mortgage_payment
+        mortgage_no_closing = self.functions.mortgage_no_closing(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
+        self.assertAlmostEqual(mortgage_no_closing, expected, 1)
+
+    def test_mortgage_with_closing(self):
+        downpayment = 0.15
+        mortgage_payment = 80000.
+        mortgage_principal = 1000000.
+        mortgage_interest_rate = 0.035
+        home_price = mortgage_principal / (1. - downpayment)
+        expected = self.functions.mortgage_duration(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate) * mortgage_payment * (1. + self.functions.closing_costs)
+        mortgage_with_closing = self.functions.mortgage_with_closing(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
+        self.assertAlmostEqual(mortgage_with_closing, expected, 1)
+
+    def test_total_cost(self):
+        downpayment = 0.15
+        mortgage_payment = 80000.
+        mortgage_principal = 1000000.
+        mortgage_interest_rate = 0.035
+        home_price = mortgage_principal / (1. - downpayment)
+        expected = downpayment * home_price + self.functions.mortgage_with_closing(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
+        total_cost = self.functions.total_cost(downpayment, mortgage_payment, mortgage_principal, mortgage_interest_rate)
+        self.assertAlmostEqual(total_cost, expected, 1)
+
     def test_property_value(self):
         downpayment = 0.1
         mortgage_principal = 900000.
